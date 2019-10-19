@@ -1,0 +1,64 @@
+format_version: '7'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+trigger_map:
+- pull_request_source_branch: "*"
+  workflow: primary
+workflows:
+  primary:
+    steps:
+    - activate-ssh-key@4.0.3:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@4.0.17: {}
+    - cache-pull@2.1.0: {}
+    - install-missing-android-tools@2.3.7:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - android-lint@0.9.6:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - android-unit-test@0.11.1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - module: "$MODULE"
+        - variant: "$VARIANT"
+    - gradle-runner@1.9.0:
+        title: jacocoTestReport
+        inputs:
+        - gradle_task: "$MODULE:jacocoTestReport"
+    - android-detekt@0.0.2: {}
+    - gradle-runner@1.9.0:
+        title: ktlint
+        inputs:
+        - gradle_task: ktlint
+    - codecov@1.1.5:
+        inputs:
+        - CODECOV_TOKEN: "$CODECOV_TOKEN"
+    - deploy-to-bitrise-io@1.6.1: {}
+    - cache-push@2.2.0: {}
+    - slack@3.1.3:
+        inputs:
+        - channel: "#lifecyklelog"
+        - fields: |-
+            App|${BITRISE_APP_TITLE}
+            Branch|${BITRISE_GIT_BRANCH}
+            Workflow|${BITRISE_TRIGGERED_WORKFLOW_ID}
+            Build|#${BITRISE_BUILD_NUMBER}
+        - channel_on_error: "#lifecyklelog"
+        - api_token: "$SLACK_BOT_TOKEN"
+app:
+  envs:
+  - opts:
+      is_expand: false
+    PROJECT_LOCATION: "."
+  - opts:
+      is_expand: false
+    MODULE: lifecyklelog
+  - opts:
+      is_expand: false
+    VARIANT: ''
+  - opts:
+      is_expand: false
+    GRADLEW_PATH: gradlew
